@@ -1,10 +1,19 @@
-import os
 from pathlib import Path
 
-runtime_dir = Path(f"/tmp/blender-runtime-{os.environ['USER']}")
-runtime_dir.mkdir(mode=0o700, exist_ok=True)
-runtime_dir.chmod(0o700)
+bashrc = Path.home() / ".bashrc"
 
-os.environ["XDG_RUNTIME_DIR"] = str(runtime_dir)
+block = r'''
+# --- XDG runtime directory for remote GUI applications ---
+export XDG_RUNTIME_DIR="/tmp/blender-runtime-$USER"
+mkdir -p "$XDG_RUNTIME_DIR"
+chmod 700 "$XDG_RUNTIME_DIR"
+# --- end XDG runtime directory ---
+'''
 
-print(f"XDG_RUNTIME_DIR={runtime_dir}")
+content = bashrc.read_text() if bashrc.exists() else ""
+
+if "# --- XDG runtime directory for remote GUI applications ---" not in content:
+    bashrc.open("a").write("\n" + block)
+
+print(f"Configured {bashrc}")
+print("Open a new terminal or run: source ~/.bashrc")
