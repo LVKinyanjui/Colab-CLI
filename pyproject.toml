@@ -1,7 +1,22 @@
 [project]
 name = "colab-cli"
 version = "0.1.0"
-description = "Add your description here"
+description = "Automate Google Cloud VM setup, processing, and teardown for Blender rendering"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 dependencies = []
+
+[project.scripts]
+colab-cli = "colab_cli.cli:main"
+setup-master = "setup_master:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["colab_cli*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
