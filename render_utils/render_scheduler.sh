@@ -33,6 +33,14 @@ BASE_DEST=${2:-${DEST:-renders}}
 MAX_JOBS=${3:-${MAX_JOBS:-2}}
 JOB_STATE_DIR=${JOB_STATE_DIR:-$PWD/.render_state}
 
+# ---------------------------------------------------------------------------
+# Ensure setup and engine options are exported to all child render_job processes
+# ---------------------------------------------------------------------------
+export SETUP_SCRIPT=${SETUP_SCRIPT:-}
+export SETUP_ARGS=${SETUP_ARGS:-}
+export RENDER_ENGINE=${RENDER_ENGINE:-CYCLES}
+export BLENDER_EXTRA_ARGS=${BLENDER_EXTRA_ARGS:-}
+
 if [[ ! -d "$BLEND_DIR" ]]; then
     echo "ERROR: blend directory not found: $BLEND_DIR" >&2
     exit 1
@@ -63,15 +71,20 @@ if [[ ${#BLEND_FILES[@]} -eq 0 ]]; then
 fi
 
 printf 'Render scheduler\n'
-printf '  blend dir : %s\n' "$BLEND_DIR"
+printf '  blend dir  : %s\n' "$BLEND_DIR"
 printf '  destination: %s\n' "$BASE_DEST"
-printf '  max jobs  : %s\n' "$MAX_JOBS"
-if [[ ${RENDER_ARGS[0]:-} == "--frame" ]]; then
-    printf '  render    : frame %s\n' "${RENDER_ARGS[1]}"
-else
-    printf '  render    : animation (-a)\n'
+printf '  max jobs   : %s\n' "$MAX_JOBS"
+printf '  engine     : %s\n' "${RENDER_ENGINE:-[from blend/script]}"
+if [[ -n "$SETUP_SCRIPT" ]]; then
+    printf '  setup hook : %s\n' "$SETUP_SCRIPT"
+    printf '  setup args : %s\n' "${SETUP_ARGS:-[none]}"
 fi
-printf '  jobs found: %s\n' "${#BLEND_FILES[@]}"
+if [[ ${RENDER_ARGS[0]:-} == "--frame" ]]; then
+    printf '  render     : frame %s\n' "${RENDER_ARGS[1]}"
+else
+    printf '  render     : animation (-a)\n'
+fi
+printf '  jobs found : %s\n' "${#BLEND_FILES[@]}"
 printf '\n'
 
 printf '%s\n' "$$" >"$SCHEDULER_PID_FILE"
