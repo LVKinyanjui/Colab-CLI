@@ -21,6 +21,7 @@ MOVE_INTERVAL=${MOVE_INTERVAL:-10}
 STABILITY_CHECK_SECONDS=${STABILITY_CHECK_SECONDS:-2}
 WORK_ROOT=${WORK_ROOT:-/content/render_work}
 LOG_DIR=${LOG_DIR:-$PWD/logs}
+JOB_STATE_DIR=${JOB_STATE_DIR:-$PWD/.render_state}
 
 if [[ ! -f "$BLEND_FILE" ]]; then
     echo "ERROR: blend file not found: $BLEND_FILE" >&2
@@ -40,10 +41,11 @@ fi
 DEST="$BASE_DEST/$NAME"
 WORK_DIR="$WORK_ROOT/$NAME"
 
-mkdir -p -- "$DEST" "$WORK_DIR" "$LOG_DIR"
+mkdir -p -- "$DEST" "$WORK_DIR" "$LOG_DIR" "$JOB_STATE_DIR"
 
 BLENDER_LOG="$LOG_DIR/${NAME}.log"
 MOVER_LOG="$LOG_DIR/${NAME}-mover.log"
+JOB_PID_FILE="$JOB_STATE_DIR/job-${NAME}.pid"
 
 printf '%s\n' '========================================'
 printf 'Render job\n'
@@ -54,7 +56,33 @@ printf '  out  : %s\n' "$DEST"
 printf '  log  : %s\n' "$BLENDER_LOG"
 printf '%s\n' '========================================'
 
+# Record this wrapper PID so the scheduler terminator can identify it.
+printf '%s\n' "$$" >"$JOB_PID_FILE"
+
+BLENDER_PID=""
+MOVER_PID=""
+
+cleanup() {
+    local status=${1:-143}
+
+    # Stop children first. This prevents the mover or Blender from surviving
+    # after the render wrapper is terminated.
+    if [[ -n "$MOVER_PID" ]] && kill -0 "$MOVER_PID" 2>/dev/null; then
+        kill -TERM "$MOVER_PID" 2>/dev/null || true
+    fi
+
+    if [[ -n "$BLENDER_PID" ]] && kill -0 "$BLENDER_PID" 2>/dev/null; then
+        kill -TERM "$BLENDER_PID" 2>/dev/null || true
+    fi
+
+    rm -f -- "$JOB_PID_FILE"
+    exit "$status"
+}
+
+trap 'cleanup 143' TERM INT HUP
+
 # Render into a job-specific directory so concurrent jobs cannot interfere.
+# Blender stdout/stderr are completely redirected to the per-job log.
 "$BLENDER_BIN" \
     -b "$BLEND_FILE" \
     -E CYCLES \
@@ -62,15 +90,14 @@ printf '%s\n' '========================================'
     -o "$WORK_DIR/$NAME" \
     -F PNG \
     --profile-gpu \
-    -f 1 \ # Render only a single frame. This is best for unanimated blend files
+    -a \
     -- \
     --cycles-device "$CYCLES_DEVICE" \
     >"$BLENDER_LOG" 2>&1 &
 
 BLENDER_PID=$!
 
-# Keep the mover separate from Blender so it can archive frames while Blender
-# continues rendering. A frame is moved only after its size is stable.
+# Start mover. A frame is moved only after its size is stable.
 (
     printf '[%s] mover started for %s (Blender PID %s)\n' \
         "$(date '+%F %T')" "$NAME" "$BLENDER_PID"
@@ -120,13 +147,14 @@ BLENDER_PID=$!
 
 MOVER_PID=$!
 
-# The scheduler sees this script's status as the Blender job's status.
+# If the scheduler terminates this wrapper, trap above cleans up both children.
 wait "$BLENDER_PID"
 BLENDER_STATUS=$?
 
-# Allow the mover to finish its final pass.
 wait "$MOVER_PID"
 MOVER_STATUS=$?
+
+rm -f -- "$JOB_PID_FILE"
 
 printf '[%s] Blender exit status: %s\n' "$(date '+%F %T')" "$BLENDER_STATUS"
 printf '[%s] mover exit status: %s\n' "$(date '+%F %T')" "$MOVER_STATUS"
@@ -142,4 +170,4 @@ if [[ "$MOVER_STATUS" -ne 0 ]]; then
 fi
 
 printf '[%s] JOB COMPLETE: %s\n' "$(date '+%F %T')" "$NAME"
-
+exit 0
