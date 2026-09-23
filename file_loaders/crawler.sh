@@ -1,0 +1,1 @@
+#!/usr/bin/env bash URL="${1:-https://download.blender.org/demo/}" PATTERN="${2:-\.blend}" wget --spider -r -np "$URL" 2>&1 | grep -Eo 'https?://[^[:space:]]+/[^[:space:]]+' | grep -E "$PATTERN" | sort -u > urls.txt
