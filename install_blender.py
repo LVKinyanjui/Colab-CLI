@@ -11,14 +11,14 @@ def run_command(cmd):
   )
   return ret
 
-version = "blender-5.1.2-linux-x64"
+version = "blender-5.2.2-linux-x64"
 version_file = f"{version}.tar.xz"
 
 # Download
 # NEXT STEPS
 # Wrap with decorator to ensure future shell commands are executed with the same 'addons'
 if not os.path.exists(version_file):
-  run_command(["wget", f"https://download.blender.org/release/Blender5.1/{version_file}"])
+  run_command(["wget", f"https://download.blender.org/release/Blender5.2/{version_file}"])
 
 # Extract
 if not os.path.exists(version):
