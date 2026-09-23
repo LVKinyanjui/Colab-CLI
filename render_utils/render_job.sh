@@ -62,7 +62,7 @@ printf '%s\n' '========================================'
     -o "$WORK_DIR/$NAME" \
     -F PNG \
     --profile-gpu \
-    -a \
+    -f 1 \ # Render only a single frame. This is best for unanimated blend files
     -- \
     --cycles-device "$CYCLES_DEVICE" \
     >"$BLENDER_LOG" 2>&1 &
