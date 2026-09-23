@@ -10,7 +10,7 @@ if ! command -v aria2c >/dev/null; then
 fi
 
 wget --spider -r -np "$URL" 2>&1 |
-  grep -Eo 'https?://[^ ]+\.blend([?#][^ ]*)?' |
+  grep -Eo 'https?://[^[:space:]]+/[^[:space:]]+\.blend([?#][^[:space:]]*)?' |
   sort -u > "$LIST"
 
-aria2c -i "$LIST" -j 8 -c
+aria2c -i "$LIST" -j 4 -c
