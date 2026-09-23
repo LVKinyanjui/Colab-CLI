@@ -3,14 +3,33 @@ set -u
 
 # Render one Blender .blend file and archive completed PNG frames.
 # Usage:
-#   render_job.sh <blend_file> <base_destination>
+#   render_job.sh [--frame FRAME | --animation] <blend_file> <base_destination>
+#
+# Default: render the full animation (-a).
 
 usage() {
-    echo "Usage: $0 <blend_file> <base_destination>" >&2
+    echo "Usage: $0 [--frame FRAME | --animation] <blend_file> <base_destination>" >&2
     exit 2
 }
 
-[[ $# -eq 2 ]] || usage
+RENDER_MODE=animation
+FRAME=""
+
+if [[ ${1:-} == "--frame" ]]; then
+    [[ $# -eq 4 ]] || usage
+    [[ ${2:-} =~ ^-?[0-9]+$ ]] || {
+        echo "ERROR: --frame requires an integer frame number: ${2:-}" >&2
+        exit 2
+    }
+    RENDER_MODE=frame
+    FRAME=$2
+    shift 2
+elif [[ ${1:-} == "--animation" ]]; then
+    [[ $# -eq 3 ]] || usage
+    shift
+elif [[ $# -ne 2 ]]; then
+    usage
+fi
 
 BLEND_FILE=$1
 BASE_DEST=$2
@@ -83,6 +102,10 @@ trap 'cleanup 143' TERM INT HUP
 
 # Render into a job-specific directory so concurrent jobs cannot interfere.
 # Blender stdout/stderr are completely redirected to the per-job log.
+BLENDER_FRAME_ARGS=(-a)
+if [[ "$RENDER_MODE" == "frame" ]]; then
+    BLENDER_FRAME_ARGS=(-f "$FRAME")
+fi
 "$BLENDER_BIN" \
     -b "$BLEND_FILE" \
     -E CYCLES \
@@ -90,7 +113,7 @@ trap 'cleanup 143' TERM INT HUP
     -o "$WORK_DIR/$NAME" \
     -F PNG \
     --profile-gpu \
-    -a \
+    "${BLENDER_FRAME_ARGS[@]}" \
     -- \
     --cycles-device "$CYCLES_DEVICE" \
     >"$BLENDER_LOG" 2>&1 &

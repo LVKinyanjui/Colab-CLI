@@ -3,12 +3,28 @@ set -u
 
 # Discover .blend files and run render_job.sh with bounded concurrency.
 # Usage:
-#   render_scheduler.sh <blend_dir> <base_destination> [max_jobs]
+#   render_scheduler.sh [--frame FRAME | --animation] [blend_dir] [base_destination] [max_jobs]
+#
+# Default: render the full animation (-a).
 
 usage() {
-    echo "Usage: $0 <blend_dir> <base_destination> [max_jobs]" >&2
+    echo "Usage: $0 [--frame FRAME | --animation] [blend_dir] [base_destination] [max_jobs]" >&2
     exit 2
 }
+
+RENDER_ARGS=()
+if [[ ${1:-} == "--frame" ]]; then
+    [[ $# -ge 2 ]] || usage
+    [[ ${2:-} =~ ^-?[0-9]+$ ]] || {
+        echo "ERROR: --frame requires an integer frame number: ${2:-}" >&2
+        exit 2
+    }
+    RENDER_ARGS=(--frame "$2")
+    shift 2
+elif [[ ${1:-} == "--animation" ]]; then
+    RENDER_ARGS=(--animation)
+    shift
+fi
 
 [[ $# -le 3 ]] || usage
 
@@ -50,6 +66,11 @@ printf 'Render scheduler\n'
 printf '  blend dir : %s\n' "$BLEND_DIR"
 printf '  destination: %s\n' "$BASE_DEST"
 printf '  max jobs  : %s\n' "$MAX_JOBS"
+if [[ ${RENDER_ARGS[0]:-} == "--frame" ]]; then
+    printf '  render    : frame %s\n' "${RENDER_ARGS[1]}"
+else
+    printf '  render    : animation (-a)\n'
+fi
 printf '  jobs found: %s\n' "${#BLEND_FILES[@]}"
 printf '\n'
 
@@ -126,7 +147,7 @@ for blend_file in "${BLEND_FILES[@]}"; do
     printf '[%s] launching %s (%s/%s)\n' \
         "$(date '+%F %T')" "$name" "$((started + 1))" "${#BLEND_FILES[@]}"
 
-    JOB_STATE_DIR="$JOB_STATE_DIR" "$JOB_SCRIPT" "$blend_file" "$BASE_DEST" &
+    JOB_STATE_DIR="$JOB_STATE_DIR" "$JOB_SCRIPT" "${RENDER_ARGS[@]}" "$blend_file" "$BASE_DEST" &
     pid=$!
     JOB_PIDS+=("$pid")
     ((running+=1))
