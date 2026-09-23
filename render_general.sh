@@ -1,4 +1,3 @@
 #!/bin/bash
 
-mkdir -p renders logs; blender -b loft.blend -E CYCLES -x 1 -o //loft -F PNG -a -- --cycles-device CUDA+CPU --profile-gpu >logs/blender.log 2>&1 & bpid=$!; (while kill -0 "$bpid" 2>/dev/null; do sleep 10; find . -maxdepth 1 -type f -name 'loft*.png' -exec mv -t renders/ -- {} +; done; find . -maxdepth 1 -type f -name 'loft*.png' -exec mv -t renders/ -- {} +) >logs/mover.log 2>&1 &
-
+NAME=loft DEST=drive/MyDrive/code/outputs/blender -c 'mkdir -p "$DEST" logs; blender -b "${NAME}.blend" -E CYCLES -x 1 -o "//${NAME}" -F PNG -a -- --cycles-device CUDA+CPU --profile-gpu >"logs/${NAME}.log" 2>&1 & bpid=$!; (while kill -0 "$bpid" 2>/dev/null; do printf "[%s] mover alive; checking for %s*.png\n" "$(date "+%F %T")" "$NAME"; find . -maxdepth 1 -type f -name "${NAME}*.png" -exec mv -t "$DEST" -- {} +; sleep 10; done; printf "[%s] blender finished; final move\n" "$(date "+%F %T")"; find . -maxdepth 1 -type f -name "${NAME}*.png" -exec mv -t "$DEST" -- {} +) >"logs/${NAME}-mover.log" 2>&1 &'
