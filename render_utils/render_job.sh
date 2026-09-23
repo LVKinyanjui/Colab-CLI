@@ -1,68 +1,36 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-render_one() {
-    blend="$1"
-    name="${blend##*/}"
-    name="${name%.blend}"
+BLEND_FILE="$1"
+DEST="$2"
 
-    job_dest="$DEST/$name"
+NAME="$(basename "$BLEND_FILE" .blend)"
+OUTDIR="$DEST/$NAME"
+LOG="logs/${NAME}.log"
 
-    mkdir -p "$job_dest" logs
+mkdir -p "$OUTDIR" logs
 
-    blender \
-        -b "$blend" \
-        -E CYCLES \
-        -x 1 \
-        -o "//$name" \
-        -F PNG \
-        -a \
-        -- \
-        --cycles-device CUDA+CPU \
-        --profile-gpu \
-        >"logs/${name}.log" 2>&1 &
+echo "========================================"
+echo "Render job"
+echo "  name : $NAME"
+echo "  blend: $BLEND_FILE"
+echo "  out  : $OUTDIR"
+echo "  log  : $LOG"
+echo "========================================"
 
-    bpid=$!
+blender \
+    -b "$BLEND_FILE" \
+    -E CYCLES \
+    -x 1 \
+    -o "$OUTDIR/$NAME" \
+    -F PNG \
+    --profile-gpu \
+    -a \
+    -- \
+    --cycles-device CUDA+CPU \
+    >"$LOG" 2>&1
 
-    (
-        while kill -0 "$bpid" 2>/dev/null; do
-            printf '[%s] mover alive; checking for %s*.png\n' \
-                "$(date '+%F %T')" "$name"
+STATUS=$?
 
-            for f in "${name}"*.png; do
-                [ -f "$f" ] || continue
-
-                size1=$(stat -c%s "$f" 2>/dev/null) || continue
-                sleep 2
-                size2=$(stat -c%s "$f" 2>/dev/null) || continue
-
-                if [ "$size1" = "$size2" ]; then
-                    mv -- "$f" "$job_dest/"
-                    printf '[%s] moved %s (%s bytes)\n' \
-                        "$(date '+%F %T')" "$f" "$size2"
-                fi
-            done
-
-            sleep 10
-        done
-
-        # Final pass
-        for f in "${name}"*.png; do
-            [ -f "$f" ] || continue
-
-            size1=$(stat -c%s "$f" 2>/dev/null) || continue
-            sleep 2
-            size2=$(stat -c%s "$f" 2>/dev/null) || continue
-
-            if [ "$size1" = "$size2" ]; then
-                mv -- "$f" "$job_dest/"
-                printf '[%s] final move: %s\n' \
-                    "$(date '+%F %T')" "$f"
-            fi
-        done
-    ) >"logs/${name}-mover.log" 2>&1 &
-
-    mpid=$!
-
-    wait "$bpid"
-    wait "$mpid"
-}
+echo
+echo "Blender exited with status: $STATUS"
+exit "$STATUS"
