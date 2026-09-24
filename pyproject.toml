@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Automate Google Cloud VM setup, processing, and teardown for Blender rendering"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "pytest>=9.1.1",
+]
 
 [project.scripts]
 colab-cli = "colab_cli.cli:main"
