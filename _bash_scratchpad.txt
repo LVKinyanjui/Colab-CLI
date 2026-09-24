@@ -1,0 +1,13 @@
+for item in {1..10}; do blender -b archiviz.blend -E CYCLES -x 1 -o //render -F PNG -f "$item" -- --cycles-device CUDA+CPU --profile-gpu; mv render* drive/MyDrive/code/outputs/blender; done &
+
+# Move files after blender run ends
+while pgrep -f "blender"  2>/dev/null; do sleep 1; done && mv render* drive/MyDrive/code/outputs/blender &
+
+mkdir -p renders logs; blender -b loft.blend -E CYCLES -x 1 -o //loft -F PNG -a -- --cycles-device CUDA+CPU --profile-gpu >logs/blender.log 2>&1 & bpid=$!; (while kill -0 "$bpid" 2>/dev/null; do sleep 10; find . -maxdepth 1 -type f -name 'loft*.png' -exec mv -t renders/ -- {} +; done; find . -maxdepth 1 -type f -name 'loft*.png' -exec mv -t renders/ -- {} +) >logs/mover.log 2>&1 &
+
+# Prune Orphaned sessions
+python3 -c "from colab_cli.common import state; state.client.unassign('<endpoint_id>')"
+
+for frame in {1..4}; do
+	./Colab-CLI/render_utils/render_job.sh --frame $frame drive/MyDrive/code/inputs/blender/Bedroom_with_cycles/quarto01-cycles_2.63.blend bedroom/ &
+done

@@ -2,6 +2,18 @@
 # Run it from Blender's Python environment
 # blender --background --python test_cycles_sampling_blender.py
 
+# USAGE
+# blender -b -P test_cycles_sampling_blender.py
+
+import os
+import sys
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+
+
 import bpy
 
 from set_cycles_sampling import configure_cycles_sampling
