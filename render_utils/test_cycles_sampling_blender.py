@@ -17,7 +17,18 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
-import bpy
+try:
+    import bpy
+except ModuleNotFoundError:
+    # Ordinary pytest collection happens outside Blender. In that environment
+    # this is an integration-only test module.
+    if "pytest" in sys.modules:
+        import pytest
+        pytest.skip(
+            "Blender integration test; run with Blender 5.2 LTS.",
+            allow_module_level=True,
+        )
+    raise
 
 from set_cycles_sampling import (
     SAMPLING_SCHEMAS,
@@ -166,11 +177,11 @@ result = configure_cycles_sampling(
 )
 
 assert result.changed == ()
-assert set(result.unchanged) == {
+assert result.unchanged == (
     "render_samples",
     "viewport_samples",
     "time_limit",
-}
+)
 
 
 # RNA-backed invalid range checks.
@@ -196,4 +207,3 @@ for kwargs in (
 
 
 print("Cycles Sampling integration test: PASS")
-

@@ -1,30 +1,36 @@
-# Cycles Sampling rollout — Core + Adaptive Sampling
+# Cycles Sampling rollout
 
 Canonical integration target: **Blender 5.2 LTS**  
-Compatibility schema: **Blender 3.6**
+Compatibility target: **Blender 3.6**
 
-## Files
+Implemented:
+- Core sampling
+  - Render Samples
+  - Viewport Samples
+  - Time Limit
+- Adaptive Sampling
+  - Render adaptive sampling
+  - Viewport adaptive sampling
 
-- `set_cycles_sampling.py` — versioned schemas, validation, mutation API.
-- `test_set_cycles_sampling.py` — pure-Python mock/unit test suite.
-- `test_cycles_sampling_blender.py` — Blender integration test. It adds its own directory to `sys.path` and works under Blender's embedded Python.
-
-## Mock suite
-
-From this directory:
+## Mock / unit tests
 
 ```bash
 pytest -q
 ```
 
-The Blender integration test is skipped during ordinary pytest collection because `bpy` is unavailable outside Blender.
+## Blender integration test
 
-## Blender integration
-
-From the directory containing the files:
+Run from this directory with the target Blender installation:
 
 ```bash
 blender -b -P test_cycles_sampling_blender.py
 ```
 
-Run this with **Blender 5.2 LTS** for the primary integration test. Blender 3.6 is retained as an explicit compatibility path.
+The integration test adds its own directory to `sys.path`, because Blender's
+embedded Python may not include the working directory automatically.
+
+The public result semantics are:
+
+- `changed`: explicitly requested settings whose values changed.
+- `unchanged`: explicitly requested settings whose values already matched.
+- omitted (`None`) settings are not reported.
