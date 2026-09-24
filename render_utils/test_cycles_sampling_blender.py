@@ -1,45 +1,23 @@
-"""
-Blender integration test for the current Cycles Sampling slice.
+"""Blender integration test for Cycles Sampling.
 
-Primary integration target:
-    Blender 5.2 LTS
+Primary integration target: Blender 5.2 LTS
+Compatibility target: Blender 3.6
 
-Compatibility smoke target:
-    Blender 3.6
-
-Run from the render_utils directory:
+Run:
     blender -b -P test_cycles_sampling_blender.py
-
-The test adds its own directory to sys.path because Blender's embedded
-Python does not necessarily include the script directory automatically.
 """
 
 from __future__ import annotations
 
+import math
 import os
 import sys
-
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
-
-try:
-    import bpy
-except ModuleNotFoundError:
-    # Allows the comprehensive pytest suite to collect this file without
-    # requiring Blender's embedded Python. When executed by Blender, bpy is
-    # available and the integration test runs normally.
-    if "pytest" in sys.modules:
-        import pytest
-
-        pytest.skip(
-            "Blender integration test; run with Blender 5.2 LTS.",
-            allow_module_level=True,
-        )
-    raise
-
+import bpy
 
 from set_cycles_sampling import (
     SAMPLING_SCHEMAS,
@@ -50,13 +28,10 @@ from set_cycles_sampling import (
 
 SUPPORTED_VERSION = bpy.app.version[:2]
 PRIMARY_VERSION = (5, 2)
-COMPATIBILITY_VERSIONS = {(3, 6)}
-
 
 if SUPPORTED_VERSION not in SAMPLING_SCHEMAS:
     raise RuntimeError(
-        f"Unsupported Blender version {SUPPORTED_VERSION[0]}."
-        f"{SUPPORTED_VERSION[1]}. "
+        f"Unsupported Blender version {SUPPORTED_VERSION[0]}.{SUPPORTED_VERSION[1]}. "
         f"Supported versions: "
         f"{', '.join(f'{a}.{b}' for a, b in sorted(SAMPLING_SCHEMAS))}"
     )
@@ -72,7 +47,6 @@ print(
 
 scene = bpy.context.scene
 assert hasattr(scene, "cycles")
-
 cycles = scene.cycles
 rna = cycles.bl_rna
 schema = get_sampling_schema(SUPPORTED_VERSION)
@@ -90,15 +64,6 @@ EXPECTED_PROPERTIES = {
     "viewport_adaptive_min_samples": "preview_adaptive_min_samples",
 }
 
-
-# Confirm the versioned schema maps to the RNA exposed by this Blender.
-for public_name, rna_name in EXPECTED_PROPERTIES.items():
-    assert public_name in schema
-    assert schema[public_name]["attribute"] == rna_name
-    assert rna_name in rna.properties, rna_name
-
-
-# Confirm RNA data types.
 EXPECTED_RNA_TYPES = {
     "render_samples": "INT",
     "viewport_samples": "INT",
@@ -111,13 +76,14 @@ EXPECTED_RNA_TYPES = {
     "viewport_adaptive_min_samples": "INT",
 }
 
-for public_name, expected_type in EXPECTED_RNA_TYPES.items():
-    rna_name = schema[public_name]["attribute"]
-    assert rna.properties[rna_name].type == expected_type
+for public_name, rna_name in EXPECTED_PROPERTIES.items():
+    assert public_name in schema
+    assert schema[public_name]["attribute"] == rna_name
+    assert rna_name in rna.properties, rna_name
+    assert rna.properties[rna_name].type == EXPECTED_RNA_TYPES[public_name]
 
 
-# 5.2 is the authoritative target. The explicit compatibility path above
-# keeps this test useful on 3.6 without silently treating 3.6 as 5.2.
+# 5.2 is the canonical integration target. Check its RNA hard limits.
 if SUPPORTED_VERSION == PRIMARY_VERSION:
     assert rna.properties["samples"].hard_min == 1
     assert rna.properties["preview_samples"].hard_min == 0
@@ -134,7 +100,7 @@ if SUPPORTED_VERSION == PRIMARY_VERSION:
     assert rna.properties["preview_adaptive_min_samples"].hard_max == 4096
 
 
-# Positive round-trip test.
+# Positive round-trip.
 configure_cycles_sampling(
     scene,
     render_samples=512,
@@ -152,14 +118,27 @@ assert cycles.samples == 512
 assert cycles.preview_samples == 64
 assert cycles.time_limit == 300.0
 assert cycles.use_adaptive_sampling is True
-assert cycles.adaptive_threshold == 0.01
 assert cycles.adaptive_min_samples == 32
 assert cycles.use_preview_adaptive_sampling is True
-assert cycles.preview_adaptive_threshold == 0.05
 assert cycles.preview_adaptive_min_samples == 8
 
+# Blender RNA FLOAT values are single precision. Do not compare them with
+# exact Python-float equality after a round-trip through RNA.
+assert math.isclose(
+    cycles.adaptive_threshold,
+    0.01,
+    rel_tol=0.0,
+    abs_tol=1e-6,
+)
+assert math.isclose(
+    cycles.preview_adaptive_threshold,
+    0.05,
+    rel_tol=0.0,
+    abs_tol=1e-6,
+)
 
-# Explicit Blender-defined boundary/automatic values.
+
+# Explicit Blender-defined automatic/unlimited values.
 configure_cycles_sampling(
     scene,
     viewport_samples=0,
@@ -172,9 +151,9 @@ configure_cycles_sampling(
 
 assert cycles.preview_samples == 0
 assert cycles.time_limit == 0.0
-assert cycles.adaptive_threshold == 0.0
+assert math.isclose(cycles.adaptive_threshold, 0.0, abs_tol=1e-9)
 assert cycles.adaptive_min_samples == 0
-assert cycles.preview_adaptive_threshold == 0.0
+assert math.isclose(cycles.preview_adaptive_threshold, 0.0, abs_tol=1e-9)
 assert cycles.preview_adaptive_min_samples == 0
 
 
@@ -194,8 +173,7 @@ assert set(result.unchanged) == {
 }
 
 
-# Blender-side invalid range checks. These specifically exercise RNA-backed
-# validation rather than merely the schema fallback used in mock tests.
+# RNA-backed invalid range checks.
 for kwargs in (
     {"render_samples": 0},
     {"viewport_samples": -1},
@@ -218,3 +196,4 @@ for kwargs in (
 
 
 print("Cycles Sampling integration test: PASS")
+
