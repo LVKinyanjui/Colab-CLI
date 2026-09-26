@@ -30,4 +30,5 @@ import subprocess
 # Colab Path Dependency!
 run_command(["ln", "-sf", f"/content/{version}/blender", "/usr/local/bin/blender"])
 
-!blender --version
+# Print Blender Version
+run_command(["blender", "--version"])
