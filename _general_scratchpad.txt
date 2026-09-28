@@ -1,0 +1,2 @@
+Oauth credentials are stored at
+~/.config/colab-cli/token.json
